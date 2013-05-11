@@ -1,0 +1,47 @@
+#!/usr/bin/env ruby
+
+require 'tempfile'
+
+def get_directory(args)
+  dir = Dir.pwd
+  if !args.empty?
+    raise Exception.new("#{ARGV[0]} is not a directory") if !File.directory?(ARGV[0])
+    dir = ARGV[0]
+  end
+  dir
+end
+
+def get_git_notes
+  out_git_notes = `git notes`.split("\n")
+  if out_git_notes.count > 1
+    raise "more than one note in the repository"
+  end
+  out_git_notes
+end
+
+def get_commit_for_note(notes)
+  if notes.empty?
+    commit = 'HEAD'
+  else
+    commit = notes[0].split[1]
+  end
+end
+
+def create_notes_file(commit_for_note)
+  tempfile = Tempfile.new('note_message')
+  if commit_for_note
+    existing_note = `git notes show #{commit_for_note}`
+    tempfile.write(existing_note)
+    tempfile.flush
+  end
+  tempfile.path
+end
+
+dir = get_directory(ARGV)
+Dir.chdir(dir) do
+  notes = get_git_notes
+  commit_for_note = get_commit_for_note(notes)
+  notes_file = create_notes_file(commit_for_note)
+  system(ENV['EDITOR'], notes_file)
+  `git notes add -f -F #{notes_file} #{commit_for_note}`
+end
